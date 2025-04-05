@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jonbonazza/gearbox/http"
 	"github.com/jonbonazza/gearbox/service"
 )
@@ -21,10 +22,11 @@ func (c Config) AppConfig() Config {
 }
 
 type Environment struct {
-	config         Config
-	httpAPIs       []http.API
-	serviceManager *service.Manager
-	logger         *slog.Logger
+	config          Config
+	httpAPIs        []http.API
+	httpMiddlewares []gin.HandlerFunc
+	serviceManager  *service.Manager
+	logger          *slog.Logger
 }
 
 func newEnvironment(config Config, logger *slog.Logger) *Environment {
@@ -39,6 +41,10 @@ func (e *Environment) AddHTTPAPI(api http.API) {
 	e.httpAPIs = append(e.httpAPIs, api)
 }
 
+func (e *Environment) AddHTTPMiddleware(m gin.HandlerFunc) {
+	e.httpMiddlewares = append(e.httpMiddlewares, m)
+}
+
 func (e *Environment) Services() ServiceRegistry {
 	return e.serviceManager
 }
@@ -48,7 +54,7 @@ func (e *Environment) Logger() *slog.Logger {
 }
 
 func (e *Environment) run(ctx context.Context) {
-	httpServer := http.NewServer(e.config.HTTP, e.logger, e.httpAPIs...)
+	httpServer := http.NewServer(e.config.HTTP, e.logger, e.httpMiddlewares, e.httpAPIs...)
 	e.serviceManager.AddService(httpServer)
 	e.serviceManager.Start(ctx)
 	<-ctx.Done()

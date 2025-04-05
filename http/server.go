@@ -16,7 +16,7 @@ var (
 )
 
 type API interface {
-	AddRoutes(engine *gin.RouterGroup)
+	AddRoutes(router *gin.RouterGroup)
 }
 
 type Config struct {
@@ -24,25 +24,29 @@ type Config struct {
 }
 
 type Server struct {
-	config     Config
-	apis       []API
-	logger     *slog.Logger
-	router     *gin.Engine
-	httpServer *http.Server
-	started    atomic.Bool
+	config      Config
+	middlewares []gin.HandlerFunc
+	apis        []API
+	logger      *slog.Logger
+	router      *gin.Engine
+	httpServer  *http.Server
+	started     atomic.Bool
 }
 
-func NewServer(config Config, logger *slog.Logger, apis ...API) *Server {
+func NewServer(config Config, logger *slog.Logger, middlewares []gin.HandlerFunc, apis ...API) *Server {
 	return &Server{
-		config: config,
-		logger: logger,
-		apis:   apis,
+		config:      config,
+		logger:      logger,
+		middlewares: middlewares,
+		apis:        apis,
 	}
 }
 
 func (s *Server) Init(ctx context.Context) error {
 	s.logger.Info("Initializing HTTP API")
 	s.router = gin.Default()
+
+	s.router.Use(s.middlewares...)
 
 	for _, api := range s.apis {
 		api.AddRoutes(&s.router.RouterGroup)
